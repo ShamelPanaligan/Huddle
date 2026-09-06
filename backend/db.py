@@ -57,7 +57,7 @@ def init_db(conn: sqlite3.Connection):
 
     conn.commit()
 
-def create_user(conn, user: User) -> User:
+def create_user(conn : sqlite3.Connection, user: User) -> User:
     cursor = conn.execute("""
     INSERT INTO users (email, password_hash, created_at) 
     VALUES (?, ?, ?)""",
@@ -67,7 +67,20 @@ def create_user(conn, user: User) -> User:
     user.id = cursor.lastrowid
     return user
 
-def row_to_user(row: sqlite3.Row) -> User:
+def add_event_idea(conn: sqlite3.Connection, event_idea: EventIdea) -> EventIdea:
+    cursor = conn.execute("""
+    INSERT INTO eventIdeas (creator_id, title, min_headcount, max_headcount, duration_min,
+    description, budget_pp, extra_details, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+    (event_idea.creator_id, event_idea.title, event_idea.min_headcount, event_idea.max_headcount,
+    event_idea.duration_min, event_idea.description, event_idea.budget_pp, event_idea.extra_details, event_idea.created_at.isoformat())
+    )
+    conn.commit()
+    event_idea.id = cursor.lastrowid
+    return event_idea
+    
+
+def _row_to_user(row: sqlite3.Row) -> User:
     return User(
         id = row["id"],
         email = row["email"],
@@ -75,6 +88,39 @@ def row_to_user(row: sqlite3.Row) -> User:
         created_at= datetime.fromisoformat(row["created_at"])
     )
 
-def get_user_by_email(conn, email) -> User | None:
+def _row_to_eventIdea(row:sqlite3.Row) -> EventIdea:
+    return EventIdea(
+        creator_id = row["creator_id"],
+        title = row["title"],
+        min_headcount = row["min_headcount"],
+        max_headcount = row["max_headcount"],
+        duration_min= row["duration_min"],
+        id = row["id"],
+        description = row["description"],
+        budget_pp = row["budget_pp"],
+        extra_details = row["extra_details"],
+        created_at = row["created_at"]
+    )
+
+def get_user_by_email(conn: sqlite3.Connection, email: str) -> User | None:
     row = conn.execute("SELECT * FROM users WHERE email = ? ", (email,)).fetchone()
-    return row_to_user(row) if row else None
+    return  _row_to_user(row) if row else None
+
+def get_event_idea(conn: sqlite3.Connection, idea_id: int) -> EventIdea | None:
+    row = conn.execute("SELECT * FROM eventIdeas WHERE id = ? ", (idea_id,)).fetchone()
+    return _row_to_eventIdea(row) if row else None
+
+def list_event_ideas(conn: sqlite3.Connection) -> list[EventIdea]:
+    rows = conn.execute("SELECT * FROM eventIdeas ORDER BY created_at DESC").fetchall()
+    return [_row_to_eventIdea(row) for row in rows]
+
+def match_event_ideas(conn: sqlite3.Connection, headcount: int, available_min: int, budget_cap: float | None = None) -> list[EventIdea]:
+    rows = conn.execute("""
+    SELECT * FROM eventIdeas
+    WHERE min_headcount <= ?
+    AND max_headcount >= ?
+    AND duration_min <= ?
+    AND (budget_pp IS NULL OR budget_pp <= ?)
+    ORDER BY created_at DESC    
+    """, (headcount, headcount ,available_min, budget_cap),).fetchall()
+    return [_row_to_eventIdea(row) for row in rows]
