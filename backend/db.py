@@ -56,3 +56,25 @@ def init_db(conn: sqlite3.Connection):
     )""")
 
     conn.commit()
+
+def create_user(conn, user: User) -> User:
+    cursor = conn.execute("""
+    INSERT INTO users (email, password_hash, created_at) 
+    VALUES (?, ?, ?)""",
+    (user.email,user.password_hash, user.created_at.isoformat())
+    )
+    conn.commit()
+    user.id = cursor.lastrowid
+    return user
+
+def row_to_user(row: sqlite3.Row) -> User:
+    return User(
+        id = row["id"],
+        email = row["email"],
+        password_hash = row["password_hash"],
+        created_at= datetime.fromisoformat(row["created_at"])
+    )
+
+def get_user_by_email(conn, email) -> User | None:
+    row = conn.execute("SELECT * FROM users WHERE email = ? ", (email,)).fetchone()
+    return row_to_user(row) if row else None
