@@ -124,3 +124,26 @@ def match_event_ideas(conn: sqlite3.Connection, headcount: int, available_min: i
     ORDER BY created_at DESC    
     """, (headcount, headcount ,available_min, budget_cap),).fetchall()
     return [_row_to_eventIdea(row) for row in rows]
+
+def create_occurrence(conn: sqlite3.Connection, occurrence: EventOccurrence) -> EventOccurrence:
+    cursor = conn.execute("""
+    INSERT into eventOccurrences (idea_id, proposed_time, created_by, created_at)
+    VALUES (?, ?, ?, ?)
+    """, (occurrence.idea_id, occurrence.proposed_time.isoformat(), occurrence.created_by, occurrence.created_at.isoformat()))
+    occurrence.id = cursor.lastrowid
+    conn.commit()
+    return occurrence
+
+def _row_to_eventOccurence(row: sqlite3.Row) -> EventOccurrence:
+    return EventOccurrence(
+        idea_id = row["idea_id"],
+        proposed_time = datetime.fromisoformat(row["proposed_time"]),
+        created_by = row["created_by"],
+        id = row["id"],
+        created_at = datetime.fromisoformat(row["created_at"])
+    )
+    
+
+def list_occurrences_for_idea(conn: sqlite3.Connection, idea_id: int) -> list[EventOccurrence]:
+    rows = conn.execute("SELECT * FROM eventOccurrences WHERE idea_id = ? ORDER BY created_at DESC", (idea_id,)).fetchall()
+    return [ _row_to_eventOccurence(row) for row in rows]
