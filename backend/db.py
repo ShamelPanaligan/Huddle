@@ -46,7 +46,7 @@ def init_db(conn: sqlite3.Connection):
 
     conn.execute("""
 
-    CREATE TABLE IF NOT EXISTS Vote (
+    CREATE TABLE IF NOT EXISTS votes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     occurrence_id INTEGER NOT NULL REFERENCES eventOccurrences(id),
     voter_token TEXT NOT NULL,  
@@ -147,3 +147,28 @@ def _row_to_eventOccurence(row: sqlite3.Row) -> EventOccurrence:
 def list_occurrences_for_idea(conn: sqlite3.Connection, idea_id: int) -> list[EventOccurrence]:
     rows = conn.execute("SELECT * FROM eventOccurrences WHERE idea_id = ? ORDER BY created_at DESC", (idea_id,)).fetchall()
     return [ _row_to_eventOccurence(row) for row in rows]
+
+def add_vote(conn: sqlite3.Connection, vote: Vote) -> Vote:
+    try:
+        cursor = conn.execute("""
+        INSERT INTO votes (occurrence_id, voter_token, response, created_at)
+        VALUES (?, ?, ?, ?) 
+        """, (vote.occurrence_id, vote.voter_token, vote.response, vote.created_at.isoformat()))
+        vote.id = cursor.lastrowid
+        conn.commit()
+        return vote
+    except sqlite3.IntegrityError:
+        return None
+    
+def _row_to_vote(row: sqlite3.Row) -> Vote:
+    return Vote(
+        occurrence_id = row["occurrence_id"],
+        voter_token = row["voter_token"],
+        response = row["response"],
+        id = row["id"],
+        created_at = datetime.fromisoformat(row["created_at"])
+    )
+
+def get_vote_for_occurrence(conn: sqlite3.Connection, occurence_id: int) -> list[Vote]:
+    rows = conn.execute("SELECT * FROM votes WHERE occurrence_id = ? ORDER BY created_at DESC", (occurence_id,)).fetchall()
+    return [_row_to_vote(row) for row in rows]
