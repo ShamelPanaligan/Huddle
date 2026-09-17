@@ -102,6 +102,10 @@ def _row_to_eventIdea(row:sqlite3.Row) -> EventIdea:
         created_at = row["created_at"]
     )
 
+def get_user_by_id(conn: sqlite3.Connection, user_id: int) -> User | None:
+    row = conn.execute("SELECT * FROM users WHERE user_id = ? ", (user_id,)).fetchone()
+    return _row_to_user(row) if row else None
+
 def get_user_by_email(conn: sqlite3.Connection, email: str) -> User | None:
     row = conn.execute("SELECT * FROM users WHERE email = ? ", (email,)).fetchone()
     return  _row_to_user(row) if row else None

@@ -1,10 +1,14 @@
 from fastapi import FastAPI, HTTPException
-from db import get_db_connection, init_db, create_user, get_user_by_email
+from db import get_db_connection, init_db, create_user, get_user_by_email, get_user_by_id
 from schemas import UserRegister, UserOut, UserLogin, TokenResponse
-from auth import hash_password, verify_password, create_access_token 
+from auth import hash_password, verify_password, create_access_token, decode_access_token 
 from models import User
+from fastapi.security import OAuth2PasswordBearer
+from fastapi import Depends
+
 
 app = FastAPI()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl = "auth/login")
 
 @app.post("/auth/register", response_model = UserOut)
 def register(user_in: UserRegister):
@@ -35,3 +39,21 @@ def login(credentials: UserLogin):
     conn.close()
     return TokenResponse(access_token = token, token_type = "bearer")
 
+def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+    user_id = decode_access_token(token)
+
+    if user_id is None:
+        raise HTTPException(status_code = 401, detail = "Invalid or expired token")
+
+    conn = get_db_connection()
+    user = get_user_by_id(conn, user_id)
+
+    if user is None:
+        raise HTTPException(status_code = 401, detail = "User not found")
+
+    conn.close()
+    return user
+
+@app.get("/me", response_model = UserOut)
+def read_current_user(current_user: User = Depends(get_current_user)):
+    return current_user
