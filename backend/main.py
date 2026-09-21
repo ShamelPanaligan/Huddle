@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException
-from db import get_db_connection, init_db, create_user, get_user_by_email, get_user_by_id, add_event_idea, list_event_ideas,get_event_idea, match_event_ideas
-from schemas import UserRegister, UserOut, UserLogin, TokenResponse, EventIdeaOut, EventIdeaCreate, MatchRequest
+from db import get_db_connection, init_db, create_user, get_user_by_email, get_user_by_id, add_event_idea, list_event_ideas,get_event_idea, match_event_ideas, list_occurrences_for_idea, create_occurrence, add_vote, get_vote_for_occurrence
+from schemas import UserRegister, UserOut, UserLogin, TokenResponse, EventIdeaOut, EventIdeaCreate, MatchRequest,EventOccurrenceOut, EventOccurrenceCreate, VoteOut, VoteCreate
 from auth import hash_password, verify_password, create_access_token, decode_access_token
-from models import User, EventIdea
+from models import User, EventIdea, EventOccurrence, Vote
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends
 
@@ -83,8 +83,42 @@ def get_event_idea_by_id(idea_id: int):
         raise HTTPException(status_code=404, detail="No event with this id")
 
 @app.post("/event-ideas/match", response_model= list[EventIdeaOut])
-def match_ideas(request = MatchRequest):
+def match_ideas(request: MatchRequest):
     conn = get_db_connection()
     results = match_event_ideas(conn, **request.model_dump())
     conn.close()
     return results
+
+@app.post("/event-ideas/{idea_id}/occurrences", response_model=EventOccurrenceOut)
+def create_event_occurrence(idea_id: int, occurrence_in: EventOccurrenceCreate, current_user = Depends(get_current_user)):
+    conn = get_db_connection()
+    new_occurrence = EventOccurrence(idea_id= idea_id, proposed_time= occurrence_in.proposed_time, created_by= current_user.id)
+    saved = create_occurrence(conn, new_occurrence)
+    conn.close()
+    return saved
+
+
+@app.get("/event-ideas/{idea_id}/occurrences", response_model= list[EventOccurrenceOut])
+def get_occurrence_list(idea_id: int):
+    conn = get_db_connection()
+    occurrence_list = list_occurrences_for_idea(conn, idea_id)
+    conn.close()
+    return occurrence_list
+
+@app.post("/occurrences/{occurrence_id}/votes", response_model= VoteOut)
+def cast_vote(occurrence_id: int, vote_in: VoteCreate):
+    conn = get_db_connection()
+    new_vote = Vote(occurrence_id = occurrence_id, voter_token = vote_in.voter_token, response= vote_in.response)
+    result = add_vote(conn, new_vote)
+    conn.close()
+
+    if result is None: 
+        raise HTTPException(status_code=409, detail= "This token has already voted on this occurrence")
+    return result
+
+@app.get("/occurrences/{occurrence_id}/votes", response_model=list[VoteOut])
+def get_votes(occurrence_id: int):
+    conn = get_db_connection()
+    vote = get_vote_for_occurrence(conn, occurrence_id)
+    conn.close()
+    return vote
