@@ -99,7 +99,7 @@ def _row_to_eventIdea(row:sqlite3.Row) -> EventIdea:
         description = row["description"],
         budget_pp = row["budget_pp"],
         extra_details = row["extra_details"],
-        created_at = row["created_at"]
+        created_at= datetime.fromisoformat(row["created_at"])
     )
 
 def get_user_by_id(conn: sqlite3.Connection, user_id: int) -> User | None:
