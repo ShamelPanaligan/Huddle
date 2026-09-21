@@ -122,3 +122,4 @@ def get_votes(occurrence_id: int):
     vote = get_vote_for_occurrence(conn, occurrence_id)
     conn.close()
     return vote
+
