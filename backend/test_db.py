@@ -4,6 +4,8 @@ from db import init_db
 
 from models import *
 from db import *
+from datetime import datetime, timedelta
+
 
 @pytest.fixture
 def conn():
@@ -99,3 +101,79 @@ def test_list_event_ideas_returns_all(conn):
     assert len(event_list) == 2
     assert saved_event_one in event_list
     assert saved_event_two in event_list
+
+def test_match_headcount_within_range(conn):
+    owner = create_user(conn, User(email="Fake@mail.com", password_hash="FakeHash"))
+    matching_idea = add_event_idea(conn, EventIdea(
+        creator_id = owner.id,
+        title = "Shopping",
+        min_headcount = 5,
+        max_headcount= 7,
+        duration_min=120))
+    non_matching_idea = add_event_idea(conn, EventIdea(
+        creator_id = owner.id,
+        title = "Walk",
+        min_headcount = 8,
+        max_headcount= 12,
+        duration_min=120))
+    results = match_event_ideas(conn, headcount=5, available_min=120, budget_cap=None)
+    print(results)
+    assert matching_idea in results
+    assert non_matching_idea not in results   
+
+def test_match_duration_too_long_excluded(conn):
+    owner = create_user(conn, User(email="Fake@mail.com", password_hash="FakeHash"))
+    matching_idea = add_event_idea(conn, EventIdea(
+        creator_id = owner.id,
+        title = "Shopping",
+        min_headcount = 5,
+        max_headcount= 7,
+        duration_min=120))
+    non_matching_idea = add_event_idea(conn, EventIdea(
+        creator_id = owner.id,
+        title = "Walk",
+        min_headcount = 8,
+        max_headcount= 12,
+        duration_min=320))
+    results = match_event_ideas(conn, headcount=5, available_min=120, budget_cap=None)
+    print(results)
+    assert matching_idea in results
+    assert non_matching_idea not in results   
+
+def test_match_excludes_expensive_prices(conn):
+    owner = create_user(conn, User(email="Fake@mail.com", password_hash="FakeHash"))
+    matching_idea = add_event_idea(conn, EventIdea(
+        creator_id = owner.id,
+        title = "Shopping",
+        min_headcount = 5,
+        max_headcount= 7,
+        duration_min=120,
+        budget_pp=30))
+    non_matching_idea = add_event_idea(conn, EventIdea(
+        creator_id = owner.id,
+        title = "Dinner",
+        min_headcount = 8,
+        max_headcount= 12,
+        duration_min=120,
+        budget_pp= 100))
+    results = match_event_ideas(conn, headcount=5, available_min=120, budget_cap=75)
+    print(results)
+    assert matching_idea in results
+    assert non_matching_idea not in results   
+
+def test_create_occurrences_assigns_an_id(conn):
+    owner = create_user(conn, User(email="Fake@mail.com", password_hash="FakeHash"))
+    idea = add_event_idea(conn, EventIdea(
+        creator_id = owner.id,
+        title = "Shopping",
+        min_headcount = 5,
+        max_headcount= 7,
+        duration_min=120,
+        budget_pp=30))
+
+    occurrence = create_occurrence(conn, occurrence=EventOccurrence(
+        idea_id= idea.id,
+        proposed_time=datetime.now() + timedelta(days=3),
+        created_by= owner.id
+    ))
+    assert occurrence.id is not None
