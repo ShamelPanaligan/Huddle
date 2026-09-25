@@ -177,3 +177,59 @@ def test_create_occurrences_assigns_an_id(conn):
         created_by= owner.id
     ))
     assert occurrence.id is not None
+
+def test_create_occurrence_bad_idea_id_raises_integrity_error(conn):
+    owner = create_user(conn, User(email="Fake@mail.com", password_hash="FakeHash"))
+    with pytest.raises(sqlite3.IntegrityError):
+        bad_occurrence = create_occurrence(conn, EventOccurrence(
+        idea_id= 9999,
+        proposed_time=datetime.now() + timedelta(days=3),
+        created_by= owner.id
+    ))
+
+def test_add_votes_succeed(conn):
+    owner = create_user(conn, User(email="Fake@mail.com", password_hash="FakeHash"))
+    idea = add_event_idea(conn, EventIdea(
+        creator_id = owner.id,
+        title = "Shopping",
+        min_headcount = 5,
+        max_headcount= 7,
+        duration_min=120,
+        budget_pp=30))
+
+    occurrence = create_occurrence(conn, occurrence=EventOccurrence(
+        idea_id= idea.id,
+        proposed_time=datetime.now() + timedelta(days=3),
+        created_by= owner.id
+    ))
+
+    vote_example = Vote(occurrence_id= occurrence.id, voter_token= "abc123", response="yes")
+    saved_vote = add_vote(conn, vote_example)
+    assert saved_vote is not None
+    assert saved_vote.id is not None
+    assert saved_vote.response == "yes"
+
+def test_add_vote_duplicate_token_returns_none(conn):
+    owner = create_user(conn, User(email="Fake@mail.com", password_hash="FakeHash"))
+    idea = add_event_idea(conn, EventIdea(
+        creator_id = owner.id,
+        title = "Shopping",
+        min_headcount = 5,
+        max_headcount= 7,
+        duration_min=120,
+        budget_pp=30))
+
+    occurrence = create_occurrence(conn, occurrence=EventOccurrence(
+        idea_id= idea.id,
+        proposed_time=datetime.now() + timedelta(days=3),
+        created_by= owner.id
+    ))
+    
+    vote_one = Vote(occurrence_id= occurrence.id, voter_token= "abc123", response="yes")
+    vote_two = Vote(occurrence_id= occurrence.id, voter_token= "abc123", response="no")
+
+    first_result = add_vote(conn, vote_one)
+    second_result = add_vote(conn, vote_two)
+
+    assert first_result is not None
+    assert second_result is None
