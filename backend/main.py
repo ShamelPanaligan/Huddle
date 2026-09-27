@@ -20,7 +20,7 @@ def register(user_in: UserRegister):
         raise HTTPException(status_code = 400, detail = "Email already registered")
 
     hashed = hash_password(user_in.password)
-    new_user = User(email = user_in.email, password_hash = user_in.password)
+    new_user = User(email = user_in.email, password_hash = hashed)
     saved_user = create_user(conn, new_user)
     conn.close()
     return saved_user
