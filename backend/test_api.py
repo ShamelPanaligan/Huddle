@@ -124,3 +124,95 @@ def test_create_event_idea_creator_id_comes_from_token_not_body():
 
     assert response.json()["creator_id"] == real_user_id
     assert response.json()["creator_id"] != 999    
+
+def test_list_event_ideas_returns_created_idea():
+    headers = get_auth_headers()
+    client.post("/event-ideas", json={
+    "title": "Board Game Night",
+    "min_headcount": 4,
+    "max_headcount": 12,
+    "duration_min": 240,
+    "creator_id":999,
+    }, headers= headers)
+
+    response = client.get("/event-ideas")
+    assert response.status_code == 200
+    titles = [idea["title"] for idea in response.json()]
+    assert "Board Game Night" in titles
+
+def test_match_endpoint_returns_matching_ideas():
+    headers = get_auth_headers()
+    client.post("/event-ideas", json={
+    "title": "Board Game Night",
+    "min_headcount": 4,
+    "max_headcount": 12,
+    "duration_min": 240,
+    "creator_id":999,
+    }, headers= headers)
+    
+    response = client.post("/event-ideas/match", json={
+        "headcount": 6,
+        "available_min": 240,
+    })
+    assert response.status_code == 200
+    titles = [idea["title"] for idea in response.json()]
+    assert "Board Game Night" in titles
+
+
+def test_match_endpoint_no_matches_returns_empty_list():
+    headers = get_auth_headers()
+    client.post("/event-ideas", json={
+    "title": "Board Game Night",
+    "min_headcount": 4,
+    "max_headcount": 12,
+    "duration_min": 240,
+    "creator_id":999,
+    }, headers= headers)
+    response = client.post("/event-ideas/match", json={
+        "headcount": 20,
+        "available_min":240,
+    })
+
+    assert response.status_code == 200
+    assert response.json() == []
+
+def test_create_occurrence_requires_auth():
+    response = client.post("/event-ideas/1/occurrences", json={
+        "idea_id": 1,
+        "proposed_time": "2026-10-01T18:00:00",
+
+    })
+    assert response.status_code ==401
+
+def test_create_occurrence_scoped_to_correct_idea():
+    headers = get_auth_headers()
+
+    idea_one = client.post("/event-ideas", json={
+        "title": "Board Game Night",
+        "min_headcount": 4,
+        "max_headcount": 12,
+        "duration_min": 240,
+    }, headers=headers).json()
+    idea_two = client.post("/event-ideas", json={
+        "title": "Cheese Board Night",
+        "min_headcount": 2,
+        "max_headcount": 8,
+        "duration_min": 120,
+    }, headers=headers).json()
+
+    occ_one = client.post(f"/event-ideas/{idea_one['id']}/occurrences", json={
+        "idea_id": idea_one["id"],
+        "proposed_time": "2026-10-01T18:00:00",
+    }, headers=headers).json()
+    
+ 
+    occ_two = client.post(f"/event-ideas/{idea_two['id']}/occurrences", json={
+        "idea_id": idea_two["id"],
+        "proposed_time": "2026-10-02T18:00:00",
+    }, headers=headers).json()
+
+    first_occur = client.get(f"/event-ideas/{idea_one['id']}/occurrences")
+    occurrence_ids = [occ["id"] for occ in first_occur.json()]
+
+    assert occ_one["id"] in occurrence_ids
+    assert occ_two["id"] not in occurrence_ids
