@@ -216,3 +216,111 @@ def test_create_occurrence_scoped_to_correct_idea():
 
     assert occ_one["id"] in occurrence_ids
     assert occ_two["id"] not in occurrence_ids
+
+def test_cast_vote_success():
+    headers = get_auth_headers()
+    idea_one = client.post("/event-ideas", json={
+        "title": "Board Game Night",
+        "min_headcount": 4,
+        "max_headcount": 12,
+        "duration_min": 240,
+    }, headers=headers).json()
+
+    occ_one = client.post(f"/event-ideas/{idea_one['id']}/occurrences", json={
+        "idea_id": idea_one["id"],
+        "proposed_time": "2026-10-01T18:00:00",
+    }, headers=headers).json()
+    response = client.post(f"/occurrences/{occ_one['id']}/votes", json={
+    "voter_token": "abc123",
+    "response": "yes",
+    })    
+    assert response.status_code == 200
+    assert response.json()["response"] == "yes"
+
+
+def test_cast_vote_duplicate_token_returns_409():
+    headers = get_auth_headers()
+    idea_one = client.post("/event-ideas", json={
+        "title": "Board Game Night",
+        "min_headcount": 4,
+        "max_headcount": 12,
+        "duration_min": 240,
+    }, headers=headers).json()
+
+    occ_one = client.post(f"/event-ideas/{idea_one['id']}/occurrences", json={
+        "idea_id": idea_one["id"],
+        "proposed_time": "2026-10-01T18:00:00",
+    }, headers=headers).json()
+
+    vote_one = client.post(f"/occurrences/{occ_one['id']}/votes", json={
+    "voter_token": "abc123",
+    "response": "yes",
+   })    
+    assert vote_one.status_code == 200
+
+    vote_two = client.post(f"/occurrences/{occ_one['id']}/votes", json={
+    "voter_token": "abc123",
+    "response": "yes",
+    })    
+    assert vote_two.status_code == 409
+
+
+def test_cast_vote_different_token_succeeds():
+    headers = get_auth_headers()
+    idea_one = client.post("/event-ideas", json={
+        "title": "Board Game Night",
+        "min_headcount": 4,
+        "max_headcount": 12,
+        "duration_min": 240,
+    }, headers=headers).json()
+
+    occ_one = client.post(f"/event-ideas/{idea_one['id']}/occurrences", json={
+        "idea_id": idea_one["id"],
+        "proposed_time": "2026-10-01T18:00:00",
+    }, headers=headers).json()
+
+    vote_one = client.post(f"/occurrences/{occ_one['id']}/votes", json={
+    "voter_token": "abc123",
+    "response": "yes",
+   })    
+    assert vote_one.status_code == 200
+
+    vote_two = client.post(f"/occurrences/{occ_one['id']}/votes", json={
+    "voter_token": "abc333",
+    "response": "yes",
+    })    
+    assert vote_two.status_code == 200
+
+
+def test_get_votes_for_occurrence_via_api():
+    headers = get_auth_headers()
+    idea_one = client.post("/event-ideas", json={
+        "title": "Board Game Night",
+        "min_headcount": 4,
+        "max_headcount": 12,
+        "duration_min": 240,
+    }, headers=headers).json()
+
+    occ_one = client.post(f"/event-ideas/{idea_one['id']}/occurrences", json={
+        "idea_id": idea_one["id"],
+        "proposed_time": "2026-10-01T18:00:00",
+    }, headers=headers).json()
+
+    vote_one = client.post(f"/occurrences/{occ_one['id']}/votes", json={
+    "voter_token": "abc333",
+    "response": "yes",
+   })    
+    assert vote_one.status_code == 200
+
+    vote_two = client.post(f"/occurrences/{occ_one['id']}/votes", json={
+    "voter_token": "abc123",
+    "response": "yes",
+    })    
+
+    response = client.get(f"/occurrences/{occ_one['id']}/votes")
+    assert response.status_code == 200
+
+
+    tokens = [vote["voter_token"] for vote in response.json()]
+    assert "abc333" in tokens
+    assert "abc123" in tokens
