@@ -1,7 +1,7 @@
 // Responsible for talking to FastAPI backend. Handles token storage and retrieval, and automatically adds the token to requests.
 const BASE_URL = "http://127.0.0.1:8000";
 
-function getToken() {
+export function getToken() {
   return localStorage.getItem("token");
 }
 
@@ -68,4 +68,8 @@ export async function createEventIdea(idea) {
     body: JSON.stringify(idea)
   })
   return data;
+}
+
+export function removeToken() {
+  localStorage.removeItem("token");
 }

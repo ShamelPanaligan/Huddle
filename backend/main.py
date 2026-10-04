@@ -5,9 +5,19 @@ from auth import hash_password, verify_password, create_access_token, decode_acc
 from models import User, EventIdea, EventOccurrence, Vote
 from fastapi.security import OAuth2PasswordBearer
 from fastapi import Depends
-
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ... your existing routes continue below
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl = "auth/login")
 
 @app.post("/auth/register", response_model = UserOut)
